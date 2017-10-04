@@ -30,8 +30,11 @@ def parseSeqEvent(runObj, ID):
 
     # optional condition
     if "OutputIDs" in cond:
-        conditions = handleOutputIDs(runObj, cond)
-        print("\tif ("+" == false || ".join(conditions["str"])+" == false) \n\t\treturn;")
+        condition = " == false || ".join(handleOutputIDs(runObj, cond)["str"])
+        if condition == "false":
+        raise Exception("Never executed (TODO: skip event entirely)")
+        if condition != "true":
+            print("\tif ("+condition+" == false) \n\t\treturn;")
 
     # optional(?) chain of events to execute when the condition (if any) evaluates to true
 
@@ -47,11 +50,11 @@ def parseSeqEvent(runObj, ID):
     #    ret["arg"] = {"ID": arg["VariableIDs"]}
     return ret
 
-def setAccountActive(runObj, ID, ndx):
+def setActive(runObj, ID, ndx, what):
     obj = runObj[ID]["obj"]
     bool = {"Activate": "true", "Deactivate": "false"}
     if type(obj["InputLinks"]["InputLink"]) == list:
-        return "Account[\""+obj["AccountName"]+"\"] = "+bool[obj["InputLinks"]["InputLink"][ndx]["Name"]]
+        return what+"[\""+obj[what+"Name"]+"\"] = "+bool[obj["InputLinks"]["InputLink"][ndx]["Name"]]
     else:
         raise Exception("Not yet implemented")
 
@@ -91,19 +94,44 @@ def personStatusEffect(runObj, ID, ndx):
         elif obj["InputLinks"]["InputLink"][ndx]["Name"] == "Remove":
             return person+"->StatusEffect.remove(\""+obj["StatusEffect"]+"\")"
 
+def inventoryForm(runObj, ID, ndx):
+    return "// FIXME: add code to show inventory form"
+
+def setBoolDirectly(runObj, ID, ndx):
+    obj = runObj[ID]["obj"]
+    varID = getVarLinkID(obj, "Var")
+    if varID:
+        return "Schedule.insert(date_today.addDays("+switchElem(runObj, varID, "")+"))"
+    else:
+        raise Exception("Unimplemented:\n"+str(obj["VariableLinks"]["VariableLink"]))
+
+def seqVar_reference(runObj, ID, ndx):
+    obj = runObj[ID]["obj"]
+    return re.sub("[. ]", "_", obj["RefFileName"].replace("\\", "::"))+"();"
+
 def switchElem(runObj, ID, ws, ndx = None):
     if runObj[ID]["type"] == "SeqEvent":
         parseSeqEvent(runObj, ID)
     elif runObj[ID]["type"] == "SeqAct_SetAccountActive":
-        return ws + setAccountActive(runObj, ID, ndx)
+        return ws + setActive(runObj, ID, ndx, "Account")
     elif runObj[ID]["type"] == "SeqAct_SetRemoteSchedule":
         return ws + setRemoteSchedule(runObj, ID, ndx)
+    elif runObj[ID]["type"] == "SeqVar_Reference":
+        return ws + seqVar_reference(runObj, ID, ndx)
     elif runObj[ID]["type"] == "SeqAct_PersonStatusEffect":
         return ws + personStatusEffect(runObj, ID, ndx)
     elif runObj[ID]["type"] == "SeqVar_Double":
         return ws + SeqVar_Double(runObj, ID, ndx)
     elif runObj[ID]["type"] == "SeqVar_Player":
         return ws + "player"
+    elif runObj[ID]["type"] == "SeqAct_AcceptEvent":
+        return ws + "true"
+    elif runObj[ID]["type"] == "SeqActLat_InventoryForm":
+        return ws + inventoryForm(runObj, ID, ndx)
+    elif runObj[ID]["type"] == "SeqAct_SetRuleActive":
+        return ws + setActive(runObj, ID, ndx, "Rule")
+    elif runObj[ID]["type"] == "SeqAct_SetBoolDirectly":
+        return ws + setBoolDirectly(runObj, ID, ndx)
     else:
         raise Exception("Not yet implemented:"+runObj[ID]["type"])
 
