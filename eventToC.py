@@ -31,8 +31,12 @@ def parseSeqEvent(runObj, ID):
     # optional condition
     if "OutputIDs" in cond:
         condition = " == false || ".join(handleOutputIDs(runObj, cond)["str"])
+        # TODO: condition can never be equal to "false" because of the assignment above
+        # condition can either be an empty string or it can be 
+        # "RV1 == false || RV2 == false || RV3"
+        # if handleOutputIDs would return the list ["RV1", "RV2", "RV3"]
         if condition == "false":
-        raise Exception("Never executed (TODO: skip event entirely)")
+            raise Exception("Never executed (TODO: skip event entirely)")
         if condition != "true":
             print("\tif ("+condition+" == false) \n\t\treturn;")
 
